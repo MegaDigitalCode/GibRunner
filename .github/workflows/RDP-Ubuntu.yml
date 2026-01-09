@@ -1,0 +1,55 @@
+name: RDP-Ubuntu-Public
+
+on: 
+  workflow_dispatch:
+    inputs:
+      dynamic_chat_id:
+        required: true
+      dynamic_token:
+        required: true
+      worker_url:
+        required: true
+      language:
+        required: true
+        default: 'en'
+
+jobs:
+  rdp-linux:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: 🔒 Masking Secrets
+        run: echo "::add-mask::${{ github.event.inputs.dynamic_token }}"
+
+      - uses: actions/checkout@v3
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Install Libs
+        run: pip install pyTelegramBotAPI psutil requests
+
+      - name: 🐧 Install XFCE Desktop & CRD
+        run: |
+          sudo apt-get update
+          # Install XFCE (Desktop Ringan)
+          sudo apt-get install -y --no-install-recommends xfce4 xfce4-terminal xfce4-goodies
+          # Install Chrome Remote Desktop
+          wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
+          sudo apt-get install -y ./chrome-remote-desktop_current_amd64.deb
+          # Configure XFCE Session
+          sudo bash -c 'echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" > /etc/chrome-remote-desktop-session'
+          # Set Resolution 1080p (Virtual) - CRD biasanya auto-resize, tapi ini membantu
+          echo "export CHROME_REMOTE_DESKTOP_DEFAULT_DESKTOP_SIZES=1920x1080" >> ~/.profile
+
+      - name: 🤖 Run Controller
+        env:
+          TG_TOKEN: ${{ github.event.inputs.dynamic_token }}
+          TG_CHATID: ${{ github.event.inputs.dynamic_chat_id }}
+          WORKER_URL: ${{ github.event.inputs.worker_url }}
+          USER_LANG: ${{ github.event.inputs.language }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: python bot_master.py
