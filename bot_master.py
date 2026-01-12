@@ -9,7 +9,7 @@ import sys
 import requests 
 import platform
 import socket
-import re # Tambahan untuk regex replace nama CRD
+import re 
 
 try: sys.stdout.reconfigure(encoding='utf-8')
 except: pass
@@ -22,8 +22,8 @@ USER_LANG = os.getenv('USER_LANG', 'en').lower()
 SYSTEM_OS = platform.system()
 RUN_ID = os.getenv('GITHUB_RUN_ID') 
 
-# NAMA KOMPUTER YANG ANDA MINTA
-CRD_NAME = "TryGitRDP - MegaDigital"
+# --- UPDATE NAMA DI SINI ---
+CRD_NAME = "GibRunner - MegaDigital"
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -83,7 +83,6 @@ def register_session():
             requests.post(f"{WORKER_URL}/register-session", json=payload, timeout=10)
     except: pass
 
-# FUNGSI BARU: Hapus Sesi di Worker sebelum Shutdown
 def stop_session_in_worker():
     try:
         if WORKER_URL:
@@ -96,8 +95,22 @@ def poll_cloudflare():
     print("Bot Started. Sending Greeting...")
     try: bot.send_message(CHAT_ID, t('start')) 
     except: pass
+    
+    # PING AWAL
+    try:
+        requests.post(f"{WORKER_URL}/heartbeat", json={"run_id": RUN_ID, "secret": TOKEN}, timeout=5)
+    except: pass
+
+    last_ping = time.time()
 
     while state["active"]:
+        # LOGIKA HEARTBEAT (Ping setiap 60 detik)
+        if time.time() - last_ping > 60:
+            try:
+                requests.post(f"{WORKER_URL}/heartbeat", json={"run_id": RUN_ID, "secret": TOKEN}, timeout=5)
+                last_ping = time.time()
+            except: pass
+
         try:
             headers = {"X-Bot-Secret": TOKEN}
             resp = requests.get(f"{WORKER_URL}/get-updates?chat_id={CHAT_ID}", headers=headers, timeout=10)
@@ -124,16 +137,12 @@ def process_text(text):
 
     if state["crd_cmd"] is None:
         if "--code=" in text:
-            # INJEKSI NAMA KOMPUTER DI SINI
             final_cmd = text
-            # Regex replace jika --name sudah ada
             if re.search(r'--name="[^"]+"', final_cmd):
                 final_cmd = re.sub(r'--name="[^"]+"', f'--name="{CRD_NAME}"', final_cmd)
-            # Regex replace jika --name tanpa kutip (jarang, tapi jaga-jaga)
             elif re.search(r'--name=[^\s]+', final_cmd):
                 final_cmd = re.sub(r'--name=[^\s]+', f'--name="{CRD_NAME}"', final_cmd)
             else:
-                # Append jika belum ada
                 final_cmd += f' --name="{CRD_NAME}"'
 
             state["crd_cmd"] = final_cmd
@@ -183,7 +192,7 @@ def process_callback(data):
 
 def perform_shutdown():
     state["active"] = False
-    stop_session_in_worker() # LAPOR KE WORKER SEBELUM MATI
+    stop_session_in_worker()
     time.sleep(2)
     if SYSTEM_OS == "Windows": os.system("shutdown /s /t 0")
     else: os.system("sudo shutdown now")
@@ -218,6 +227,7 @@ def monitor_loop():
             bot.send_message(CHAT_ID, t('timeout'))
             perform_shutdown()
             break
+        # Heartbeat handled in main loop
         time.sleep(30)
 
 if __name__ == "__main__":
