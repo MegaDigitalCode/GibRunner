@@ -22,7 +22,7 @@ USER_LANG = os.getenv('USER_LANG', 'en').lower()
 SYSTEM_OS = platform.system()
 RUN_ID = os.getenv('GITHUB_RUN_ID') 
 
-# --- UPDATE NAMA DI SINI ---
+# NAMA KOMPUTER
 CRD_NAME = "GibRunner - MegaDigital"
 
 bot = telebot.TeleBot(TOKEN)
@@ -37,16 +37,6 @@ TEXTS = {
         'timeout': "🛑 Duration Limit Reached.",
         'max_limit': "⚠️ **Max Limit!** Cannot exceed 6 Hours.",
         'status_info': "📊 **System Status**\nCPU: {cpu}%\nRAM: {ram}%\nTime Left: {left}m"
-    },
-    'id': {
-        'start': f"👋 **{SYSTEM_OS} RDP SIAP!**\n\nPaste **Command CRD** sekarang.\n(Dari: remotedesktop.google.com/headless)",
-        'cmd_received': "✅ Command Diterima. Nama set ke **" + CRD_NAME + "**\nMasukkan **PIN (6 Angka)**:",
-        'pin_ok': "✅ PIN Disimpan.\n👉 **Pilih Durasi (Jam):**",
-        'starting': "🚀 **Menyalakan RDP...**\nMohon tunggu...",
-        'active_text': "🖥️ **RDP AKTIF!**\n\n📍 **Lokasi:** {country} ({ip})\n⚙️ **Spek:** {cpu} Core / {ram}GB RAM\n💻 **OS:** {os}\n\nSilakan Login di aplikasi CRD sekarang.",
-        'timeout': "🛑 Batas Waktu Habis.",
-        'max_limit': "⚠️ **Batas Max!** Tidak bisa lebih dari 6 Jam.",
-        'status_info': "📊 **Status System**\nCPU: {cpu}%\nRAM: {ram}%\nSisa Waktu: {left}m"
     }
 }
 def t(key): return TEXTS.get(USER_LANG, TEXTS['en']).get(key, key)
@@ -97,8 +87,7 @@ def poll_cloudflare():
     except: pass
     
     # PING AWAL
-    try:
-        requests.post(f"{WORKER_URL}/heartbeat", json={"run_id": RUN_ID, "secret": TOKEN}, timeout=5)
+    try: requests.post(f"{WORKER_URL}/heartbeat", json={"run_id": RUN_ID, "secret": TOKEN}, timeout=5)
     except: pass
 
     last_ping = time.time()
@@ -153,13 +142,14 @@ def process_text(text):
         if text.isdigit() and len(text) >= 6:
             state["pin"] = text
             mk = InlineKeyboardMarkup(row_width=3)
+            # --- UPDATE BAHASA DI SINI ---
             mk.add(
-                InlineKeyboardButton("1 Jam", callback_data="time_60"),
-                InlineKeyboardButton("2 Jam", callback_data="time_120"),
-                InlineKeyboardButton("3 Jam", callback_data="time_180"),
-                InlineKeyboardButton("4 Jam", callback_data="time_240"),
-                InlineKeyboardButton("5 Jam", callback_data="time_300"),
-                InlineKeyboardButton("6 Jam", callback_data="time_360")
+                InlineKeyboardButton("1 Hour", callback_data="time_60"),
+                InlineKeyboardButton("2 Hours", callback_data="time_120"),
+                InlineKeyboardButton("3 Hours", callback_data="time_180"),
+                InlineKeyboardButton("4 Hours", callback_data="time_240"),
+                InlineKeyboardButton("5 Hours", callback_data="time_300"),
+                InlineKeyboardButton("6 Hours", callback_data="time_360")
             )
             bot.send_message(CHAT_ID, t('pin_ok'), reply_markup=mk)
         else:
