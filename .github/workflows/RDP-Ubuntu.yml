@@ -1,6 +1,6 @@
 name: RDP-Ubuntu-Public
 
-on: 
+on:
   workflow_dispatch:
     inputs:
       dynamic_chat_id:
@@ -16,40 +16,59 @@ on:
 jobs:
   rdp-linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     env:
       PYTHONIOENCODING: utf-8
     steps:
-      - name: 🔒 Masking Secrets
+      - name: Masking Secrets
         run: echo "::add-mask::${{ github.event.inputs.dynamic_token }}"
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: 📦 Install Libs
+      - name: Install Python libs
         run: pip install pyTelegramBotAPI psutil requests
 
-      - name: 🐧 Install XFCE Desktop & CRD
+      - name: Install desktop deps and tmate
         run: |
           sudo apt-get update
-          # Install XFCE (Desktop Ringan)
-          sudo apt-get install -y --no-install-recommends xfce4 xfce4-terminal xfce4-goodies
-          # Install Chrome Remote Desktop
-          wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
-          sudo apt-get install -y ./chrome-remote-desktop_current_amd64.deb
-          # Configure XFCE Session
-          sudo bash -c 'echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" > /etc/chrome-remote-desktop-session'
-          # Set Resolution 1080p (Virtual) - CRD biasanya auto-resize, tapi ini membantu
-          echo "export CHROME_REMOTE_DESKTOP_DEFAULT_DESKTOP_SIZES=1920x1080" >> ~/.profile
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            xfce4 xfce4-goodies xvfb dbus-x11 curl wget tmate
 
-      - name: 🤖 Run Controller
+      - name: Install RustDesk
+        run: |
+          URL=$(curl -fsSL https://api.github.com/repos/rustdesk/rustdesk/releases/latest \
+            | grep browser_download_url \
+            | grep 'x86_64.deb' \
+            | head -n1 \
+            | cut -d '"' -f 4)
+
+          if [ -z "$URL" ]; then
+            echo "Failed to locate latest RustDesk .deb"
+            exit 1
+          fi
+
+          wget -qO rustdesk.deb "$URL"
+          sudo apt-get install -y ./rustdesk.deb
+
+      - name: Start virtual desktop session
+        run: |
+          export DISPLAY=:1
+          nohup Xvfb :1 -screen 0 1366x768x24 >/tmp/xvfb.log 2>&1 &
+          sleep 2
+          nohup startxfce4 >/tmp/xfce.log 2>&1 &
+          sleep 3
+
+      - name: Run Controller
         env:
           TG_TOKEN: ${{ github.event.inputs.dynamic_token }}
           TG_CHATID: ${{ github.event.inputs.dynamic_chat_id }}
           WORKER_URL: ${{ github.event.inputs.worker_url }}
           USER_LANG: ${{ github.event.inputs.language }}
           GITHUB_RUN_ID: ${{ github.run_id }}
+          DISPLAY: ':1'
         run: python bot_master.py

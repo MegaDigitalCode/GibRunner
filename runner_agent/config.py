@@ -1,0 +1,36 @@
+import os
+import platform
+import secrets
+import string
+from dataclasses import dataclass
+
+
+def _gen_password(length: int = 12) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+@dataclass
+class Config:
+    tg_token: str
+    chat_id: str
+    worker_url: str
+    user_lang: str
+    system_os: str
+    run_id: str | None
+    rustdesk_password: str
+    heartbeat_seconds: int = 60
+    poll_seconds: int = 2
+    max_duration_minutes: int = 360
+
+    @classmethod
+    def from_env(cls) -> "Config":
+        return cls(
+            tg_token=os.getenv('TG_TOKEN', ''),
+            chat_id=os.getenv('TG_CHATID', ''),
+            worker_url=os.getenv('WORKER_URL', ''),
+            user_lang=os.getenv('USER_LANG', 'en').lower(),
+            system_os=platform.system(),
+            run_id=os.getenv('GITHUB_RUN_ID'),
+            rustdesk_password=os.getenv('RUSTDESK_PASSWORD') or _gen_password(),
+        )
