@@ -24,6 +24,17 @@ def _run_quiet(cmd, shell=False, timeout=20):
     return subprocess.run(cmd, shell=shell, capture_output=True, text=True, timeout=timeout)
 
 
+def _summarize_proc(prefix: str, proc: subprocess.CompletedProcess):
+    # Avoid leaking secrets while still surfacing Linux RustDesk CLI behavior.
+    out = (proc.stdout or "").strip().replace("\n", " ")
+    err = (proc.stderr or "").strip().replace("\n", " ")
+    if len(out) > 180:
+        out = out[:180] + "..."
+    if len(err) > 180:
+        err = err[:180] + "..."
+    print(f"{prefix} rc={proc.returncode} stdout={out!r} stderr={err!r}")
+
+
 def _start_rustdesk_windows(password: str):
     rustdesk = shutil.which("rustdesk")
     if not rustdesk:
@@ -52,28 +63,61 @@ def _start_rustdesk_linux(password: str):
     if not rustdesk:
         raise RuntimeError("rustdesk is not installed")
 
-    # Start the desktop app first, then apply unattended password with retries.
-    # On Linux runners the first password set can race with startup/init.
+    # RustDesk Linux package installs a system service. Configure password via
+    # sudo first (service scope), then fallback to user scope for compatibility.
+    try:
+        svc = _run_quiet(["sudo", "-n", "systemctl", "restart", "rustdesk"], timeout=20)
+        _summarize_proc("rustdesk service restart (pre)", svc)
+    except Exception as exc:
+        print(f"rustdesk service restart (pre) exception={exc}")
+
+    # Start desktop app so a UI session is available on the virtual display.
     subprocess.Popen([rustdesk], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(2)
+    time.sleep(3)
 
     pw_set = False
-    for _ in range(6):
-        out = subprocess.run([rustdesk, "--password", password], capture_output=True, text=True)
-        if out.returncode == 0:
-            pw_set = True
+    last_proc = None
+    password_cmds = [
+        ["sudo", "-n", rustdesk, "--password", password],
+        [rustdesk, "--password", password],
+    ]
+    for idx, cmd in enumerate(password_cmds, start=1):
+        for attempt in range(1, 5):
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            last_proc = proc
+            _summarize_proc(f"rustdesk password cmd#{idx} attempt#{attempt}", proc)
+            if proc.returncode == 0:
+                pw_set = True
+                break
+            time.sleep(2)
+        if pw_set:
             break
-        time.sleep(2)
     if not pw_set:
+        if last_proc is not None:
+            _summarize_proc("rustdesk password final", last_proc)
         raise RuntimeError("Failed to set RustDesk password on Linux")
 
+    try:
+        svc = _run_quiet(["sudo", "-n", "systemctl", "restart", "rustdesk"], timeout=20)
+        _summarize_proc("rustdesk service restart (post)", svc)
+    except Exception as exc:
+        print(f"rustdesk service restart (post) exception={exc}")
+
     rid = ""
-    for _ in range(10):
-        out = subprocess.run([rustdesk, "--get-id"], capture_output=True, text=True)
-        rid = (out.stdout or "").strip().splitlines()[0] if (out.stdout or "").strip() else ""
+    get_id_cmds = [
+        ["sudo", "-n", rustdesk, "--get-id"],
+        [rustdesk, "--get-id"],
+    ]
+    for cmd in get_id_cmds:
+        for _ in range(8):
+            out = subprocess.run(cmd, capture_output=True, text=True)
+            rid = (out.stdout or "").strip().splitlines()[0] if (out.stdout or "").strip() else ""
+            if rid:
+                print(f"rustdesk get-id via {'sudo' if cmd[0] == 'sudo' else 'user'} success")
+                break
+            time.sleep(2)
         if rid:
             break
-        time.sleep(2)
     if not rid:
         raise RuntimeError("RustDesk ID not found")
     return rid
