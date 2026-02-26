@@ -27,7 +27,6 @@ def normalize_rustdesk_password(system_os: str, password: str | None) -> str:
 
 @dataclass
 class Config:
-    tg_token: str
     chat_id: str
     worker_url: str
     user_lang: str
@@ -43,12 +42,11 @@ class Config:
     def from_env(cls) -> "Config":
         system_os = platform.system()
         return cls(
-            tg_token=os.getenv('TG_TOKEN', ''),
             chat_id=os.getenv('TG_CHATID', ''),
             worker_url=os.getenv('WORKER_URL', ''),
             user_lang=os.getenv('USER_LANG', 'en').lower(),
             system_os=system_os,
             run_id=os.getenv('GITHUB_RUN_ID'),
             rustdesk_password=normalize_rustdesk_password(system_os, os.getenv('RUSTDESK_PASSWORD')),
-            runner_secret=os.getenv('SESSION_SECRET') or os.getenv('TG_TOKEN', ''),
+            runner_secret=os.getenv('SESSION_SECRET', ''),
         )
