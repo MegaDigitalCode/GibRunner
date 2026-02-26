@@ -4,8 +4,6 @@ import time
 import sys
 
 import psutil
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from .config import Config
 from .state import SessionState
@@ -37,39 +35,38 @@ def t(cfg: Config, key: str) -> str:
 
 
 def get_control_menu():
-    mk = InlineKeyboardMarkup(row_width=2)
-    mk.add(
-        InlineKeyboardButton("📊 Info", callback_data="info"),
-        InlineKeyboardButton("➕ Extend 30m", callback_data="extend"),
-        InlineKeyboardButton("💀 KILL SESSION", callback_data="kill"),
-    )
-    return mk
+    return {
+        "inline_keyboard": [[
+            {"text": "📊 Info", "callback_data": "info"},
+            {"text": "➕ Extend 30m", "callback_data": "extend"},
+            {"text": "💀 KILL SESSION", "callback_data": "kill"},
+        ]]
+    }
 
 
 def get_duration_menu():
-    mk = InlineKeyboardMarkup(row_width=3)
-    mk.add(
-        InlineKeyboardButton("1 Hour", callback_data="time_60"),
-        InlineKeyboardButton("2 Hours", callback_data="time_120"),
-        InlineKeyboardButton("3 Hours", callback_data="time_180"),
-        InlineKeyboardButton("4 Hours", callback_data="time_240"),
-        InlineKeyboardButton("5 Hours", callback_data="time_300"),
-        InlineKeyboardButton("6 Hours", callback_data="time_360"),
-    )
-    return mk
+    return {
+        "inline_keyboard": [[
+            {"text": "1 Hour", "callback_data": "time_60"},
+            {"text": "2 Hours", "callback_data": "time_120"},
+            {"text": "3 Hours", "callback_data": "time_180"},
+            {"text": "4 Hours", "callback_data": "time_240"},
+            {"text": "5 Hours", "callback_data": "time_300"},
+            {"text": "6 Hours", "callback_data": "time_360"},
+        ]]
+    }
 
 
 class RunnerAgentApp:
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.bot = telebot.TeleBot(cfg.tg_token)
         self.state = SessionState()
         self.worker = WorkerClient(cfg.worker_url, cfg.runner_secret, cfg.chat_id, cfg.run_id)
         self._session_thread = None
 
     def safe_send(self, text, reply_markup=None):
         try:
-            self.bot.send_message(self.cfg.chat_id, text, reply_markup=reply_markup)
+            self.worker.send_bot_message(text, reply_markup=reply_markup)
         except Exception:
             pass
 
@@ -217,8 +214,8 @@ class RunnerAgentApp:
 
 def main():
     cfg = Config.from_env()
-    if not cfg.tg_token or not cfg.chat_id:
-        raise RuntimeError("Missing TG_TOKEN or TG_CHATID")
+    if not cfg.chat_id or not cfg.worker_url or not cfg.runner_secret:
+        raise RuntimeError("Missing TG_CHATID, WORKER_URL, or SESSION_SECRET")
     app = RunnerAgentApp(cfg)
     app.poll_loop()
 

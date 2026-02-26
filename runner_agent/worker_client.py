@@ -50,3 +50,16 @@ class WorkerClient:
             return
         body = {"chat_id": self.chat_id, "run_id": self.run_id, "secret": self.bot_secret, **payload}
         requests.post(f"{self.worker_url}/session-endpoint", json=body, timeout=10)
+
+    def send_bot_message(self, text: str, reply_markup: dict | None = None) -> None:
+        if not self.worker_url:
+            return
+        body = {
+            "chat_id": self.chat_id,
+            "run_id": self.run_id,
+            "secret": self.bot_secret,
+            "text": text,
+        }
+        if reply_markup:
+            body["reply_markup"] = reply_markup
+        requests.post(f"{self.worker_url}/runner-message", json=body, timeout=10)

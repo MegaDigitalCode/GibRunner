@@ -5,8 +5,6 @@ on:
     inputs:
       dynamic_chat_id:
         required: true
-      dynamic_token:
-        required: true
       runner_secret:
         required: true
       worker_url:
@@ -24,10 +22,8 @@ jobs:
     steps:
       - name: Masking Secrets
         env:
-          MASK_TOKEN: ${{ github.event.inputs.dynamic_token }}
           MASK_RUNNER_SECRET: ${{ github.event.inputs.runner_secret }}
         run: |
-          printf '%s\n' "::add-mask::$MASK_TOKEN"
           printf '%s\n' "::add-mask::$MASK_RUNNER_SECRET"
 
       - uses: actions/checkout@v4
@@ -38,7 +34,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install Python libs
-        run: pip install pyTelegramBotAPI psutil requests
+        run: pip install psutil requests
 
       - name: Install desktop deps and tmate
         run: |
@@ -72,7 +68,6 @@ jobs:
 
       - name: Run Controller
         env:
-          TG_TOKEN: ${{ github.event.inputs.dynamic_token }}
           TG_CHATID: ${{ github.event.inputs.dynamic_chat_id }}
           WORKER_URL: ${{ github.event.inputs.worker_url }}
           USER_LANG: ${{ github.event.inputs.language }}
