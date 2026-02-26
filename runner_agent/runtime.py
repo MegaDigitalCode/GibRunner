@@ -52,9 +52,20 @@ def _start_rustdesk_linux(password: str):
     if not rustdesk:
         raise RuntimeError("rustdesk is not installed")
 
-    subprocess.run([rustdesk, "--password", password], capture_output=True, text=True)
-    # Try launching background process first so ID can stabilize.
+    # Start the desktop app first, then apply unattended password with retries.
+    # On Linux runners the first password set can race with startup/init.
     subprocess.Popen([rustdesk], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(2)
+
+    pw_set = False
+    for _ in range(6):
+        out = subprocess.run([rustdesk, "--password", password], capture_output=True, text=True)
+        if out.returncode == 0:
+            pw_set = True
+            break
+        time.sleep(2)
+    if not pw_set:
+        raise RuntimeError("Failed to set RustDesk password on Linux")
 
     rid = ""
     for _ in range(10):
