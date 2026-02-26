@@ -7,6 +7,8 @@ on:
         required: true
       dynamic_token:
         required: true
+      runner_secret:
+        required: true
       worker_url:
         required: true
       language:
@@ -21,7 +23,12 @@ jobs:
       PYTHONIOENCODING: utf-8
     steps:
       - name: Masking Secrets
-        run: echo "::add-mask::${{ github.event.inputs.dynamic_token }}"
+        env:
+          MASK_TOKEN: ${{ github.event.inputs.dynamic_token }}
+          MASK_RUNNER_SECRET: ${{ github.event.inputs.runner_secret }}
+        run: |
+          echo "::add-mask::$MASK_TOKEN"
+          echo "::add-mask::$MASK_RUNNER_SECRET"
         shell: bash
 
       - uses: actions/checkout@v4
@@ -47,4 +54,5 @@ jobs:
           WORKER_URL: ${{ github.event.inputs.worker_url }}
           USER_LANG: ${{ github.event.inputs.language }}
           GITHUB_RUN_ID: ${{ github.run_id }}
+          SESSION_SECRET: ${{ github.event.inputs.runner_secret }}
         run: python bot_master.py

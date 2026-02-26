@@ -34,6 +34,7 @@ class Config:
     system_os: str
     run_id: str | None
     rustdesk_password: str
+    runner_secret: str
     heartbeat_seconds: int = 60
     poll_seconds: int = 2
     max_duration_minutes: int = 360
@@ -49,4 +50,5 @@ class Config:
             system_os=system_os,
             run_id=os.getenv('GITHUB_RUN_ID'),
             rustdesk_password=normalize_rustdesk_password(system_os, os.getenv('RUSTDESK_PASSWORD')),
+            runner_secret=os.getenv('SESSION_SECRET') or os.getenv('TG_TOKEN', ''),
         )

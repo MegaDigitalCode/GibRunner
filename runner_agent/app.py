@@ -64,7 +64,7 @@ class RunnerAgentApp:
         self.cfg = cfg
         self.bot = telebot.TeleBot(cfg.tg_token)
         self.state = SessionState()
-        self.worker = WorkerClient(cfg.worker_url, cfg.tg_token, cfg.chat_id, cfg.run_id)
+        self.worker = WorkerClient(cfg.worker_url, cfg.runner_secret, cfg.chat_id, cfg.run_id)
         self._session_thread = None
 
     def safe_send(self, text, reply_markup=None):
