@@ -34,6 +34,7 @@ class Config:
     run_id: str | None
     rustdesk_password: str
     runner_secret: str
+    requested_duration_minutes: int
     heartbeat_seconds: int = 60
     poll_seconds: int = 2
     max_duration_minutes: int = 360
@@ -41,6 +42,11 @@ class Config:
     @classmethod
     def from_env(cls) -> "Config":
         system_os = platform.system()
+        try:
+            requested_duration = int(os.getenv('SESSION_DURATION_MINUTES', '360') or '360')
+        except Exception:
+            requested_duration = 360
+        requested_duration = max(60, min(360, requested_duration))
         return cls(
             chat_id=os.getenv('TG_CHATID', ''),
             worker_url=os.getenv('WORKER_URL', ''),
@@ -49,4 +55,5 @@ class Config:
             run_id=os.getenv('GITHUB_RUN_ID'),
             rustdesk_password=normalize_rustdesk_password(system_os, os.getenv('RUSTDESK_PASSWORD')),
             runner_secret=os.getenv('SESSION_SECRET', ''),
+            requested_duration_minutes=requested_duration,
         )

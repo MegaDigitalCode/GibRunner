@@ -193,7 +193,7 @@ class RunnerAgentApp:
         if self.is_web_mode():
             with self.state.lock:
                 if not self.state.session_started and not self._session_thread:
-                    self.state.set_duration(self.cfg.max_duration_minutes)
+                    self.state.set_duration(min(self.cfg.requested_duration_minutes, self.cfg.max_duration_minutes))
                     self._session_thread = threading.Thread(target=self.run_session_process, daemon=True)
                     self._session_thread.start()
         else:

@@ -12,6 +12,9 @@ on:
       language:
         required: true
         default: 'en'
+      session_duration_minutes:
+        required: false
+        default: '360'
 
 jobs:
   rdp-linux:
@@ -73,5 +76,6 @@ jobs:
           USER_LANG: ${{ github.event.inputs.language }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           SESSION_SECRET: ${{ github.event.inputs.runner_secret }}
+          SESSION_DURATION_MINUTES: ${{ github.event.inputs.session_duration_minutes }}
           DISPLAY: ':1'
         run: python bot_master.py
