@@ -64,6 +64,12 @@ class RunnerAgentApp:
         self.worker = WorkerClient(cfg.worker_url, cfg.runner_secret, cfg.chat_id, cfg.run_id)
         self._session_thread = None
 
+    def is_web_mode(self) -> bool:
+        # Web-only sessions use synthetic owner refs like "web:<user_id>".
+        # In this mode there is no Telegram callback flow, so session start must
+        # be automatic instead of waiting for button commands.
+        return str(self.cfg.chat_id or "").startswith("web:")
+
     def safe_send(self, text, reply_markup=None):
         try:
             self.worker.send_bot_message(text, reply_markup=reply_markup)
@@ -184,7 +190,14 @@ class RunnerAgentApp:
 
     def poll_loop(self):
         self.register_session()
-        self.safe_send(t(self.cfg, 'start'), reply_markup=get_duration_menu())
+        if self.is_web_mode():
+            with self.state.lock:
+                if not self.state.session_started and not self._session_thread:
+                    self.state.set_duration(self.cfg.max_duration_minutes)
+                    self._session_thread = threading.Thread(target=self.run_session_process, daemon=True)
+                    self._session_thread.start()
+        else:
+            self.safe_send(t(self.cfg, 'start'), reply_markup=get_duration_menu())
         try:
             self.worker.heartbeat(force=True)
         except Exception:
